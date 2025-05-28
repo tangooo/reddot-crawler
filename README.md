@@ -75,8 +75,6 @@ pip install -r requirements.txt
 **作者:** tAngo
 **联系方式:** org.java.tango@gmail.com
 
-**版权所有:** (c) 2024 tAngo
-
 本项目仅用于学习交流目的，请勿用于任何商业用途。
 
 ## 许可证
