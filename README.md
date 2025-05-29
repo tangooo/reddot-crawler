@@ -1,83 +1,82 @@
-# 红点设计奖作品采集工具
+# RedDot Crawler
 
-本项目是一个用于采集红点设计奖（Red Dot Design Award）官方网站作品信息并生成 PDF 报告的自动化工具。
+一个用于抓取红点设计奖网站作品数据并生成结构化 CSV 和 PDF 报告的 Python 工具。
 
-## 功能特性
+## 功能
 
-- **多分类采集:** 支持按不同设计分类（如产品设计、品牌与传播设计、设计概念）分别采集数据并生成独立的报告。
-- **逐页采集与合并:** 自动处理分页，逐页抓取数据并生成临时 PDF，最终合并为完整的 PDF 报告。
-- **作品详情抓取:** 访问每个作品的详情页，获取完整的项目描述。
-- **图片下载:** 自动下载作品相关的图片。
-- **PDF 报告生成:** 生成包含封面页、作品列表和详细信息的 PDF 报告。
-- **自定义样式:** PDF 报告支持中文字体，布局和样式可配置。
-- **详细日志:** 提供详细的运行日志，方便调试和跟踪。
-- **错误处理:** 内置网络请求重试和数据处理错误处理机制。
+- 自动采集红点设计奖网站的作品数据。
+- 抓取作品的标题、类型、作者、年份等基本信息。
+- 访问作品详情页，提取详细描述和完整的作者/团队信息。
+- 下载作品高清图片。
+- 将采集到的数据按分类保存为 CSV 文件，支持追加模式，确保数据不丢失。
+- 为每个分类生成美观的 PDF 报告，包含：
+    - 封面页（标题、生成时间、作者、作品总数）。
+    - 作品详情页（图片、标题、描述、类型、作者、年份、序号）。
+    - 统一的页尾（包含页码和作者信息）。
+- 支持通过配置文件 `config.py` 灵活设置 API 地址、输出目录、采集分类、网络请求参数、字体目录、日志级别等。
+- 代码采用面向对象设计，逻辑清晰，易于维护。
+- 实现了网络请求的重试机制，提高采集稳定性。
+- 提供详细的日志输出，方便调试和监控。
 
-## 环境要求
+## 先决条件
 
-- Python 3.6+
-- 操作系统: macOS, Linux, Windows
+- Python 3.6 或更高版本。
+- 依赖库 (详见 `requirements.txt`)。
 
-## 安装依赖
+## 安装
 
-项目依赖可以通过 `requirements.txt` 文件安装：
-
-```bash
-pip install -r requirements.txt
-```
-
-建议在一个 [Python 虚拟环境](https://docs.python.org/zh-cn/3/library/venv.html) 中进行安装。
-
-## 使用方法
-
-1. 克隆项目到本地：
+1. 克隆仓库到本地：
 
    ```bash
-   git clone https://github.com/tangooo/reddot-crawler.git
+   git clone <repository_url>
    cd reddot-crawler
    ```
 
-2. 安装项目依赖：
+2. 安装依赖库：
 
    ```bash
    pip install -r requirements.txt
    ```
 
-3. 运行爬虫程序：
+3. (可选) 如果需要在 PDF 中使用特定字体，请将字体文件（.ttf, .ttc, .otf）放入 `fonts` 目录。可以在 `config.py` 中修改 `FONTS_DIR` 指定其他目录。
 
-   ```bash
-   ./start.sh
-   ```
+## 配置
 
-程序将开始采集数据，并在 `output` 目录下为每个分类生成独立的 PDF 报告和临时文件。
+编辑 `config.py` 文件，根据需要修改以下配置项：
 
-## 输出说明
+- `BASE_URL`: 红点设计奖 API 的基础 URL。
+- `SITE_BASE_URL`: 红点设计奖网站的基础 URL，用于构建详情页链接。
+- `OUTPUT_DIR`: 输出文件（CSV、PDF、图片、临时文件）保存的根目录。
+- `CATEGORIES`: 一个字典，定义需要采集的分类及其对应的 API 过滤参数。
+- `MAX_RETRIES`: 网络请求的最大重试次数。
+- `RETRY_DELAY`: 网络请求重试之间的等待秒数。
+- `REQUEST_TIMEOUT`: 网络请求超时时间（秒）。
+- `FONTS_DIR`: 字体文件所在的目录，用于 PDF 生成。
+- `LOGGING_LEVEL`: 日志输出级别 (如 `logging.INFO`, `logging.DEBUG`, `logging.WARNING` 等)。需要导入 `logging` 模块。
 
-程序会在运行目录下创建 `output` 目录。在该目录下，会为每个分类（如 `product_design`、`brand_communication_design`、`design_concept`）创建一个子目录。
+## 使用方法
 
-每个分类子目录下会包含：
+直接运行主脚本：
 
-- `reddot_designs_<分类名称>_YYYYMMDD_HHMMSS.pdf`: 最终合并的 PDF 报告文件。
-- `temp/`: 临时文件存放目录，包含封面 `cover.pdf` 和每页的临时 PDF 文件 `temp_page_X.pdf`。采集完成后，临时文件会被移动到分类输出目录下。
-- `crawler.log`: 运行日志文件，记录采集过程中的详细信息。
+```bash
+python reddot_crawler.py
+```
 
-最终生成的 PDF 报告中，每个作品会以段落形式展示以下信息：
+脚本将按照 `config.py` 中配置的分类进行采集，并将结果保存在 `OUTPUT_DIR` 下按分类命名的子目录中。
 
-- 序号 (页码-当前页序号)
-- 作品图片
-- 标题
-- 项目描述
-- 类型
-- 作者
-- 时间
+## 输出
 
-## 作者与版权
+采集结果将保存在 `OUTPUT_DIR` 指定的目录下，每个分类一个子目录。每个分类子目录中包含：
 
-**作者:** tAngo
-**联系方式:** org.java.tango@gmail.com
+- `reddot_designs_<category_name>.csv`: 包含该分类所有作品数据的 CSV 文件。
+- `reddot_designs_<category_name>_*.pdf`: 包含该分类所有作品详情的 PDF 报告。
+- `images/`: 保存所有下载的作品图片文件。
+- `temp/`: 保存 PDF 生成过程中产生的临时文件（如临时页 PDF 和封面 PDF）。这些文件在合并后通常会被移动到分类输出目录并清理临时目录。
 
-本项目仅用于学习交流目的，请勿用于任何商业用途。
+## 作者
 
-## 许可证
+tAngo / org.java.tango@gmail.com
 
-本项目采用 [MIT License](https://opensource.org/licenses/MIT) 开源许可证。 
+## 版权与学习交流
+
+本项目仅供学习交流使用，请勿用于任何商业用途。遵循相关网站的数据抓取政策和法律法规。因使用本项目而产生的一切后果由使用者自行承担。
