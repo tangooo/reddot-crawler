@@ -12,7 +12,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.enums import TA_CENTER, TA_LEFT # 导入对齐常量
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from PIL import Image as PILImage
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
@@ -48,7 +48,7 @@ def get_system_font():
                     return font_path
                 else:
                     logger.warning(f"字体文件格式无效: {font_path}")
-    
+
     # 如果fonts目录下没有有效字体，则使用系统字体
     system = platform.system()
     if system == 'Darwin':  # macOS
@@ -79,7 +79,7 @@ def get_system_font():
             return font_path
         elif os.path.exists(font_path):
             logger.warning(f"系统字体格式无效: {path}")
-    
+
     logger.warning("未找到任何有效的中文字体")
     return None
 
@@ -164,7 +164,7 @@ class PdfGenerator:
     def create_temp_page_pdf(self, designs: List[Dict], page_num: int) -> Optional[str]:
         """生成包含单页数据和临时封面/页眉页脚的PDF文件"""
         logger.info(f"开始生成第 {page_num} 页的临时PDF")
-        
+
         output_filename = f"temp_page_{page_num}.pdf"
         output_path = os.path.join(self.temp_dir, output_filename)
 
@@ -189,7 +189,7 @@ class PdfGenerator:
             alignment=1,  # 居中
             textColor=colors.HexColor('#1a1a1a')
         )
-        
+
         # 临时页标题样式 (参考最终封面标题)
         temp_page_title_style = ParagraphStyle(
             'TempPageTitle',
@@ -202,7 +202,7 @@ class PdfGenerator:
             textColor=colors.HexColor('#1a1a1a'),
             bold=1 # 加粗
         )
-        
+
         # 临时页信息样式 (参考最终封面副标题/信息)
         temp_page_info_style = ParagraphStyle(
             'TempPageInfo',
@@ -218,7 +218,7 @@ class PdfGenerator:
 
         # 添加临时页标题 - 使用原页眉文本作为主标题
         story.append(Paragraph(f"红点设计奖作品集 (数据页 {page_num})", temp_page_title_style))
-        
+
         # 添加本页收录作品数量信息 (移到时间上方)
         story.append(Paragraph(f"本页收录 {len(designs)} 个作品", temp_page_info_style))
         story.append(Spacer(1, 0.5*cm)) # 调整作品数与时间之间的间距
@@ -231,7 +231,7 @@ class PdfGenerator:
         )
         story.append(Paragraph(f"生成时间：{datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}", temp_time_author_style))
         story.append(Paragraph(f"tAngo/org.java.tango@gmail.com", temp_page_info_style))
-        
+
         story.append(Spacer(1, 3*cm)) # 调整信息与内容之间的间距
 
         story.append(PageBreak()) # 强制分页，后续是作品内容
@@ -540,7 +540,7 @@ class PdfGenerator:
             'description': '这是一个测试作品描述，用于验证 PDF 样式。' * 5,
             'image_path': None  # 测试时不包含图片
         }
-        
+
         # 生成测试 PDF
         return self.generate_full_pdf([test_design], output_filename)
 
@@ -549,7 +549,7 @@ class PdfGenerator:
         if not designs:
             logger.warning("没有作品数据可生成 PDF")
             return None
-            
+
         output_path = os.path.join(self.output_dir, output_filename)
         doc = SimpleDocTemplate(
             output_path,
@@ -559,16 +559,16 @@ class PdfGenerator:
             topMargin=72,
             bottomMargin=72
         )
-        
+
         elements = []
-        
+
         # 添加封面
         elements.extend(self.create_cover_page("红点设计奖作品集", len(designs)))
-        
+
         # 添加内容页
         for i, design in enumerate(designs, 1):
             elements.extend(self.create_content_page(design, i, len(designs)))
-        
+
         try:
             doc.build(elements)
             logger.info(f"PDF 文件生成成功: {output_path}")
@@ -580,11 +580,11 @@ class PdfGenerator:
     def create_cover_page(self, title: str, total_count: int) -> List:
         """创建封面页"""
         elements = []
-        
+
         # 添加标题
         elements.append(Paragraph(title, self.styles['ChineseTitle']))
         elements.append(Spacer(1, 2*cm))
-        
+
         # 添加时间和作者信息
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         elements.append(Paragraph(f"生成时间：{current_time}", self.styles['ChineseSubTitle']))
@@ -592,18 +592,18 @@ class PdfGenerator:
         elements.append(Paragraph(f"生成工具：RedDot Crawler", self.styles['ChineseSubTitle']))
         elements.append(Spacer(1, 0.5*cm))
         elements.append(Paragraph(f"作品总数：{total_count}", self.styles['ChineseSubTitle']))
-        
+
         elements.append(PageBreak())
         return elements
 
     def create_content_page(self, design: Dict, page_number: int, total_pages: int) -> List:
         """创建内容页"""
         elements = []
-        
+
         # 添加标题
         elements.append(Paragraph(design['title'], self.styles['ChineseTitle']))
         elements.append(Spacer(1, 1*cm))
-        
+
         # 添加图片
         if 'image_path' in design and os.path.exists(design['image_path']):
             try:
@@ -615,7 +615,7 @@ class PdfGenerator:
                 elements.append(Spacer(1, 1*cm))
             except Exception as e:
                 logger.error(f"加载图片失败: {str(e)}")
-        
+
         # 添加作品信息
         info_items = [
             ('类型', design.get('type', '')),
@@ -623,16 +623,16 @@ class PdfGenerator:
             ('日期', design.get('date', '')),
             ('描述', design.get('description', ''))
         ]
-        
+
         for label, content in info_items:
             if content:
                 elements.append(Paragraph(f"{label}：{content}", self.styles['ChineseLabel']))
                 elements.append(Spacer(1, 0.3*cm))
-        
+
         # 添加页码
         elements.append(Spacer(1, 1*cm))
-        elements.append(Paragraph(f"第 {page_number} 页 / 共 {total_pages} 页", 
+        elements.append(Paragraph(f"第 {page_number} 页 / 共 {total_pages} 页",
                                 self.styles['ChineseBody']))
-        
+
         elements.append(PageBreak())
-        return elements 
+        return elements

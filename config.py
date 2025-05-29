@@ -24,4 +24,7 @@ FONTS_DIR = "fonts"
 
 # 日志配置
 import logging
-LOGGING_LEVEL = logging.DEBUG # 默认日志级别为 INFO 
+LOGGING_LEVEL = logging.INFO # 默认日志级别为 INFO
+
+# 多线程配置
+NUM_THREADS = 10 # 并发线程数，可根据网络条件和机器性能调整 

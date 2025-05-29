@@ -8,6 +8,9 @@ import csv # 导入 csv 模块
 import hashlib # 导入 hashlib 用于生成文件名
 import mimetypes # 导入 mimetypes 用于根据 Content-Type 获取后缀
 
+# 导入并发库
+import concurrent.futures
+
 # 导入配置
 import config
 
@@ -107,6 +110,40 @@ class RedDotCrawler:
                  logger.error(f"解析详情页 {detail_url} 时出错: {str(e)}")
                  return None
 
+    def _process_single_design(self, design: Dict) -> Optional[Dict]:
+        """处理单个设计作品：获取详情页数据和下载图片"""
+        try:
+            # 获取详情页数据 (描述和作者)
+            details = self.get_design_details(design.get('detail_url'))
+            if details:
+                 if 'description' in details:
+                     design['description'] = details['description'] # 更新描述
+                     logger.debug(f"更新作品 {design.get('title','未知标题')} 描述")
+                 # 从详情页获取作者信息并更新
+                 if 'author' in details and details['author']:
+                     design['author'] = details['author'] # 更新作者信息
+                     logger.debug(f"更新作品 {design.get('title','未知标题')} 作者为: {design['author']}")
+                 else:
+                      logger.debug(f"作品 {design.get('title','未知标题')} 详情页未提取到作者信息")
+
+
+            # 下载图片并保存到文件
+            image_url = design.get('image_url')
+            logger.info(f"尝试下载图片: {image_url} 为作品: {design.get('title','未知标题')}")
+            image_path = self.download_image(image_url, self.images_dir)
+            design['image_path'] = image_path
+            if image_path:
+                 logger.debug(f"下载并保存作品 {design.get('title','未知标题')} 图片到: {image_path}")
+            else:
+                 logger.warning(f"未能下载或保存作品 {design.get('title','未知标题')} 图片")
+
+            return design # 返回处理后的设计作品字典
+
+        except Exception as e:
+            logger.error(f"处理单个设计作品失败: {design.get('title','未知标题')} - {str(e)}", exc_info=True)
+            return None # 处理失败返回 None
+
+
     def search_designs(self, keyword: str = "", category_filter: str = "", category_name: str = "") -> List[Dict]:
         """搜索设计作品，逐页处理并生成临时PDF"""
         all_designs = [] # 新增一个列表用于存储所有作品数据
@@ -119,7 +156,7 @@ class RedDotCrawler:
         while True:
             try:
                 logger.info(f"开始获取第 {page} 页数据 (分类: {category_filter or '所有'}) ") # 修改日志
-                
+
                 # 构建请求参数
                 params = {
                     'solr[filter][]': [], # 将空字符串改为列表，方便添加多个过滤条件
@@ -158,11 +195,11 @@ class RedDotCrawler:
 
                 logger.info("收到响应，开始解析内容")
                 data = response.json()
-                
+
                 page_designs = []
                 # 检查 'result' 和 'docs' 键是否存在，并直接遍历 'docs' 列表
                 if 'result' in data and 'docs' in data['result'] and isinstance(data['result']['docs'], list):
-                    for doc in data['result']['docs']: # 直接迭代 result['docs']
+                    for doc in data['result']['docs']:
                         try:
                             # 打印原始doc对象，用于调试
                             logger.debug(f"原始设计作品数据 (doc): {json.dumps(doc, ensure_ascii=False, indent=2)}")
@@ -176,10 +213,10 @@ class RedDotCrawler:
                             detail_url_suffix = doc.get('url') # 获取详情页URL的后缀
 
                             # 验证必要字段
-                            if not title or not image_url or not detail_url_suffix: # 确保能获取到详情页URL后缀
+                            if not title or not image_url or not detail_url_suffix:
                                 logger.warning(f"跳过无效数据 (缺少标题、图片URL或详情页URL后缀): {json.dumps(doc, ensure_ascii=False)}")
                                 continue
-                                
+
                             # 构建完整的详情页URL
                             detail_url = f"{self.site_base_url}{detail_url_suffix}"
                             logger.debug(f"构建的详情页完整URL: {detail_url}")
@@ -197,7 +234,7 @@ class RedDotCrawler:
                                         'description': '', # 描述先留空，后面抓取详情页
                                         'type': category,
                                         'image_url': image_url,
-                                        'author': author,
+                                        'author': author, # 作者先用API返回的，后面详情页更新
                                         'date': year,
                                         'detail_url': detail_url # 保留详情页URL，可能有用
                                     }
@@ -211,7 +248,7 @@ class RedDotCrawler:
                                     'description': '', # 描述先留空，后面抓取详情页
                                     'type': category,
                                     'image_url': image_url,
-                                    'author': author,
+                                    'author': author, # 作者先用API返回的，后面详情页更新
                                     'date': year,
                                     'detail_url': detail_url # 保留详情页URL，可能有用
                                 }
@@ -221,48 +258,40 @@ class RedDotCrawler:
                         except Exception as e:
                             logger.error(f"处理单个设计作品时出错: {str(e)}", exc_info=True)
                             continue
-                
+
                 if not page_designs:
                     logger.info(f"第 {page} 页去重后没有作品，停止获取") # 修改日志信息
                     break
-                    
-                logger.info(f"成功获取并处理第 {page} 页的 {len(page_designs)} 个设计作品（去重后）") # 修改日志信息
 
-                # 获取详情页和下载图片
+                logger.info(f"成功获取并处理第 {page} 页的 {len(page_designs)} 个设计作品（去重后），开始并行处理详情和图片下载...") # 修改日志信息
+
+                # 使用线程池并行处理每个作品的详情抓取和图片下载
                 processed_page_designs = []
-                for design in page_designs:
-                    try:
-                        # 获取详情页数据 (描述)
-                        details = self.get_design_details(design.get('detail_url')) # 从设计数据中获取详情页URL
-                        if details and 'description' in details:
-                             design['description'] = details['description'] # 更新描述
-                             logger.debug(f"更新作品 {design.get('title','未知标题')} 描述")
+                with concurrent.futures.ThreadPoolExecutor(max_workers=config.NUM_THREADS) as executor:
+                    # 提交任务到线程池
+                    future_to_design = {executor.submit(self._process_single_design, design): design for design in page_designs}
 
-                        if 'author' in details:
-                            design['author'] = details['author'] # 更新作者信息
-                            logger.debug(f"更新作品 {design.get('title','未知标题')} 作者")
+                    # 收集结果
+                    for future in concurrent.futures.as_completed(future_to_design):
+                        original_design = future_to_design[future]
+                        try:
+                            processed_design = future.result()
+                            if processed_design:
+                                processed_page_designs.append(processed_design)
+                                logger.debug(f"作品 {processed_design.get('title', '未知标题')} 并行处理完成")
+                            else:
+                                logger.warning(f"作品 {original_design.get('title', '未知标题')} 并行处理失败")
+                        except Exception as e:
+                            logger.error(f"作品 {original_design.get('title', '未知标题')} 并行处理过程中发生异常: {str(e)}", exc_info=True)
 
-                        # 下载图片并保存到文件
-                        image_url = design.get('image_url')
-                        logger.info(f"尝试下载图片: {image_url} 为作品: {design.get('title','未知标题')}") # Added log
-                        image_path = self.download_image(image_url, self.images_dir)
-                        design['image_path'] = image_path
-                        if image_path:
-                             logger.debug(f"下载并保存作品 {design.get('title','未知标题')} 图片到: {image_path}")
-                        else:
-                             logger.warning(f"未能下载或保存作品 {design.get('title','未知标题')} 图片")
+                logger.info(f"第 {page} 页并行处理完成，成功处理 {len(processed_page_designs)} 个作品。") # Added log
 
-                        processed_page_designs.append(design) # 添加处理后的作品
-
-                    except Exception as e:
-                        logger.error(f"处理单个设计作品详情/图片失败: {design.get('title','未知标题')} - {str(e)}", exc_info=True)
-                        continue
 
                 # 将当前页处理后的作品添加到总列表
                 all_designs.extend(processed_page_designs)
 
                 # 在每一页数据获取和处理完成后保存CSV
-                logger.info(f"开始保存 {category_name} 分类的 CSV 文件 (当前已采集 {len(all_designs)} 条)...")
+                logger.info(f"开始保存 {category_name} 分类的 CSV 文件 (当前已采集 {len(all_designs)} 条)... ")
                 # 注意：这里需要确保save_designs_to_csv支持追加模式，或者每次都重写
                 self.save_designs_to_csv(processed_page_designs, self.output_dir, category_name)
 
