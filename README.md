@@ -57,10 +57,10 @@
 
 ## 使用方法
 
-直接运行主脚本：
+直接运行脚本：
 
 ```bash
-python reddot_crawler.py
+./start.sh 或 python reddot_crawler.py
 ```
 
 脚本将按照 `config.py` 中配置的分类进行采集，并将结果保存在 `OUTPUT_DIR` 下按分类命名的子目录中。
