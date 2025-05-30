@@ -1,8 +1,8 @@
 # RedDot Crawler
 
-一个用于抓取红点设计奖网站作品数据并生成结构化 CSV 和 PDF 报告的 Python 工具。
+红点设计奖作品爬虫工具，用于收集和生成红点设计奖作品集 PDF。
 
-## 功能
+## 功能特点
 
 - 自动采集红点设计奖网站的作品数据。
 - 抓取作品的标题、类型、作者、年份等基本信息。
@@ -18,29 +18,63 @@
 - 实现了网络请求的重试机制，提高采集稳定性。
 - 提供详细的日志输出，方便调试和监控。
 
-## 先决条件
+## 系统要求
 
-- Python 3.6 或更高版本。
-- 依赖库 (详见 `requirements.txt`)。
+- Python 3.8 或更高版本
+- macOS/Linux/Windows 操作系统
 
-## 安装
+## 安装步骤
 
-1. 克隆仓库到本地：
+1. 克隆仓库：
+```bash
+git clone https://github.com/yourusername/reddot-crawler.git
+cd reddot-crawler
+```
 
-   ```bash
-   git clone <repository_url>
-   cd reddot-crawler
-   ```
+2. 创建虚拟环境（推荐）：
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+# 或
+.\venv\Scripts\activate  # Windows
+```
 
-2. 安装依赖库：
+3. 安装依赖：
+```bash
+pip install -r requirements.txt
+```
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+4. 安装中文字体（可选）：
+   - 将中文字体文件（如 .ttf 或 .ttc 格式）放入 `fonts` 目录
+   - 支持的字体格式：TTF、TTC、OTF
 
-3. (可选) 如果需要在 PDF 中使用特定字体，请将字体文件（.ttf, .ttc, .otf）放入 `fonts` 目录。可以在 `config.py` 中修改 `FONTS_DIR` 指定其他目录。
+## 使用方法
 
-## 配置
+1. 运行爬虫：
+```bash
+./start.sh
+```
+
+2. 运行PDF单元测试：
+```bash
+python pdf_generator.py
+```
+
+测试结果将显示：
+```
+==================================================
+测试结果汇总:
+==================================================
+merge_pdfs           : ✅ 通过
+create_temp_page_pdf : ✅ 通过
+pdf_styles          : ✅ 通过
+download_image      : ✅ 通过
+==================================================
+总体结果: ✅ 全部通过
+==================================================
+```
+
+## 配置说明
 
 编辑 `config.py` 文件，根据需要修改以下配置项：
 
@@ -54,16 +88,7 @@
 - `**NUM_THREADS**`: **并行处理作品详情和图片下载的线程数**。
 - `FONTS_DIR`: 字体文件所在的目录，用于 PDF 生成。
 - `LOGGING_LEVEL`: 日志输出级别 (如 `logging.INFO`, `logging.DEBUG`, `logging.WARNING` 等)。需要导入 `logging` 模块。
-
-## 使用方法
-
-直接运行脚本：
-
-```bash
-./start.sh 或 python reddot_crawler.py
-```
-
-脚本将按照 `config.py` 中配置的分类进行采集，并将结果保存在 `OUTPUT_DIR` 下按分类命名的子目录中。
+- (可选) 如果需要在 PDF 中使用特定字体，请将字体文件（.ttf, .ttc, .otf）放入 `fonts` 目录。可以在 `config.py` 中修改 `FONTS_DIR` 指定其他目录。
 
 ## 输出
 
@@ -73,6 +98,40 @@
 - `reddot_designs_<category_name>_*.pdf`: 包含该分类所有作品详情的 PDF 报告。
 - `images/`: 保存所有下载的作品图片文件。
 - `temp/`: 保存 PDF 生成过程中产生的临时文件（如临时页 PDF 和封面 PDF）。这些文件在合并后通常会被移动到分类输出目录并清理临时目录。
+
+
+## 项目结构
+
+```
+reddot-crawler/
+├── main.py              # 主程序入口
+├── crawler.py           # 爬虫核心逻辑
+├── pdf_generator.py     # PDF 生成器
+├── config.py           # 配置文件
+├── requirements.txt    # 依赖列表
+├── fonts/             # 字体目录
+├── output/            # 输出目录
+└── tests/             # 测试目录
+```
+
+## 开发说明
+
+1. 代码风格遵循 PEP 8 规范
+2. 使用 logging 模块进行日志记录
+3. 包含完整的单元测试
+4. 使用类型注解提高代码可读性
+
+
+## 注意事项
+
+1. 确保网络连接稳定
+2. 需要足够磁盘空间存储图片和 PDF
+3. 建议使用虚拟环境运行
+4. 如遇到字体问题，请检查字体文件是否正确安装
+
+## 许可证
+
+MIT License
 
 ## 作者
 

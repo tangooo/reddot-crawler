@@ -12,7 +12,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT # 导入对齐常量
 from PIL import Image as PILImage
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
@@ -48,7 +48,7 @@ def get_system_font():
                     return font_path
                 else:
                     logger.warning(f"字体文件格式无效: {font_path}")
-
+    
     # 如果fonts目录下没有有效字体，则使用系统字体
     system = platform.system()
     if system == 'Darwin':  # macOS
@@ -79,7 +79,7 @@ def get_system_font():
             return font_path
         elif os.path.exists(font_path):
             logger.warning(f"系统字体格式无效: {path}")
-
+    
     logger.warning("未找到任何有效的中文字体")
     return None
 
@@ -164,7 +164,7 @@ class PdfGenerator:
     def create_temp_page_pdf(self, designs: List[Dict], page_num: int) -> Optional[str]:
         """生成包含单页数据和临时封面/页眉页脚的PDF文件"""
         logger.info(f"开始生成第 {page_num} 页的临时PDF")
-
+        
         output_filename = f"temp_page_{page_num}.pdf"
         output_path = os.path.join(self.temp_dir, output_filename)
 
@@ -189,7 +189,7 @@ class PdfGenerator:
             alignment=1,  # 居中
             textColor=colors.HexColor('#1a1a1a')
         )
-
+        
         # 临时页标题样式 (参考最终封面标题)
         temp_page_title_style = ParagraphStyle(
             'TempPageTitle',
@@ -202,7 +202,7 @@ class PdfGenerator:
             textColor=colors.HexColor('#1a1a1a'),
             bold=1 # 加粗
         )
-
+        
         # 临时页信息样式 (参考最终封面副标题/信息)
         temp_page_info_style = ParagraphStyle(
             'TempPageInfo',
@@ -218,7 +218,7 @@ class PdfGenerator:
 
         # 添加临时页标题 - 使用原页眉文本作为主标题
         story.append(Paragraph(f"红点设计奖作品集 (数据页 {page_num})", temp_page_title_style))
-
+        
         # 添加本页收录作品数量信息 (移到时间上方)
         story.append(Paragraph(f"本页收录 {len(designs)} 个作品", temp_page_info_style))
         story.append(Spacer(1, 0.5*cm)) # 调整作品数与时间之间的间距
@@ -231,7 +231,7 @@ class PdfGenerator:
         )
         story.append(Paragraph(f"生成时间：{datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}", temp_time_author_style))
         story.append(Paragraph(f"tAngo/org.java.tango@gmail.com", temp_page_info_style))
-
+        
         story.append(Spacer(1, 3*cm)) # 调整信息与内容之间的间距
 
         story.append(PageBreak()) # 强制分页，后续是作品内容
@@ -241,40 +241,71 @@ class PdfGenerator:
             try:
                 logger.info(f"处理第 {page_num} 页的第 {i} 个作品: {design.get('title', '未知标题')}")
 
-                # 添加图片 (这里假设design字典中已经包含了下载好的图片数据或者我们会在这里下载)
-                # 为了保持PdfGenerator的独立性，假设图片数据是作为BytesIO对象传递进来的
-                # 如果design字典中没有图片数据，或者下载失败，则跳过图片添加
-                # 现在design中应该有 'image_path' 字段
+                # 处理图片
                 image_path = design.get('image_path')
-                if image_path and os.path.exists(image_path):
+                if image_path:
                     try:
-                        logger.info(f"尝试加载图片用于PDF: {image_path} 为作品: {design.get('title', '未知标题')}")
-                        img = Image(image_path)
-                        # 调整图片大小以适应页面
-                        img_width, img_height = img.drawWidth, img.drawHeight
-                        aspect = img_height / float(img_width)
-                        # 限制图片宽度，高度按比例缩放
-                        max_img_width = A4[0] - doc.leftMargin - doc.rightMargin - 20 # 留出一些边距
-                        if img_width > max_img_width:
-                            img_width = max_img_width
-                            img_height = img_width * aspect
+                        # 如果是URL，先下载图片
+                        if image_path.startswith('http'):
+                            import requests
+                            from urllib.parse import urlparse
+                            from pathlib import Path
+                            
+                            # 创建临时图片目录
+                            temp_img_dir = os.path.join(self.temp_dir, 'images')
+                            if not os.path.exists(temp_img_dir):
+                                os.makedirs(temp_img_dir)
+                            
+                            # 从URL中提取文件名
+                            parsed_url = urlparse(image_path)
+                            filename = os.path.basename(parsed_url.path)
+                            if not filename:
+                                filename = f"image_{page_num}_{i}.jpg"
+                            
+                            # 下载图片
+                            response = requests.get(image_path)
+                            if response.status_code == 200:
+                                temp_img_path = os.path.join(temp_img_dir, filename)
+                                with open(temp_img_path, 'wb') as f:
+                                    f.write(response.content)
+                                image_path = temp_img_path
+                                logger.info(f"图片下载成功: {image_path}")
+                            else:
+                                logger.warning(f"图片下载失败，状态码: {response.status_code}")
+                                image_path = None
+                        
+                        # 如果图片路径有效，添加到PDF
+                        if image_path and os.path.exists(image_path):
+                            try:
+                                img = Image(image_path)
+                                # 调整图片大小以适应页面
+                                img_width, img_height = img.drawWidth, img.drawHeight
+                                aspect = img_height / float(img_width)
+                                # 限制图片宽度，高度按比例缩放
+                                max_img_width = A4[0] - doc.leftMargin - doc.rightMargin - 20 # 留出一些边距
+                                if img_width > max_img_width:
+                                    img_width = max_img_width
+                                    img_height = img_width * aspect
 
-                        # 确保图片高度不会超出页面可用高度（考虑边距）
-                        max_allowed_height = A4[1] - doc.topMargin - doc.bottomMargin - 20 # 留出更多余量
-                        if img_height > max_allowed_height:
-                             img_height = max_allowed_height
-                             img_width = img_height / aspect
+                                # 确保图片高度不会超出页面可用高度（考虑边距）
+                                max_allowed_height = A4[1] - doc.topMargin - doc.bottomMargin - 20 # 留出更多余量
+                                if img_height > max_allowed_height:
+                                     img_height = max_allowed_height
+                                     img_width = img_height / aspect
 
-
-                        story.append(Image(image_path, width=img_width, height=img_height))
-                        story.append(Spacer(1, 12)) # 图片下方间距
-                        logger.info(f"成功加载图片 {image_path} 并添加到PDF story")
+                                story.append(Image(image_path, width=img_width, height=img_height))
+                                story.append(Spacer(1, 12)) # 图片下方间距
+                                logger.info(f"成功加载图片 {image_path} 并添加到PDF story")
+                            except Exception as e:
+                                logger.error(f"处理图片时出错: {str(e)}", exc_info=True)
+                                story.append(Paragraph("图片加载或处理失败", styles['Normal']))
+                                story.append(Spacer(1, 12))
+                        else:
+                            logger.warning(f"图片路径无效或文件不存在: {image_path}")
                     except Exception as e:
-                        logger.error(f"处理作品 {design.get('title', '未知标题')} 图片时出错: {str(e)}", exc_info=True)
-                        story.append(Paragraph("图片加载或处理失败", styles['Normal']))
-                        story.append(Spacer(1, 12))
+                        logger.error(f"处理图片URL时出错: {str(e)}", exc_info=True)
                 else:
-                     logger.warning(f"作品 {design.get('title', '未知标题')} 没有有效的图片路径: {image_path}")
+                    logger.warning(f"作品 {design.get('title', '未知标题')} 没有图片路径")
 
                 # 添加详细信息（不使用表格）
                 content_label_style = ParagraphStyle(
@@ -429,127 +460,145 @@ class PdfGenerator:
              return None
 
     def merge_pdfs(self, temp_pdf_files: List[str], output_filename: str, total_count: int) -> Optional[str]:
-        """合并临时PDF文件，并重新计算全局页码，将临时文件移动到输出目录"""
-        logger.info("开始合并临时PDF文件")
+        """合并临时PDF文件并添加页码"""
+        logger.info(f"开始合并 {len(temp_pdf_files)} 个临时PDF文件到 {output_filename}")
 
-        writer = PdfWriter()
-        global_page_count = 0 # 用于计算全局页码
+        if not temp_pdf_files:
+            logger.warning("没有临时PDF文件可供合并。")
+            return None
 
-        # 添加封面
-        # 封面现在在 main 函数中独立生成，并第一个被添加到临时文件列表中
-        # 这里只需要按顺序读取并添加到 writer
-        # 临时目录结构应为：temp/cover.pdf, temp/temp_page_1.pdf, temp/temp_page_2.pdf, ...
+        merger = PdfWriter()
+        output_path = os.path.join(self.output_dir, output_filename)
 
-        all_files_to_merge = [os.path.join(self.temp_dir, "cover.pdf")] + temp_pdf_files
-
-        for pdf_file_path in all_files_to_merge:
-            if not os.path.exists(pdf_file_path):
-                logger.warning(f"文件不存在，跳过合并: {pdf_file_path}")
-                continue
-
-            try:
-                reader = PdfReader(pdf_file_path)
-                num_pages = len(reader.pages)
-
-                for i in range(num_pages):
-                    page = reader.pages[i]
-
-                    # 手动添加页脚（仅内容页添加，封面页不加）
-                    if os.path.basename(pdf_file_path) != "cover.pdf":
-                        packet = BytesIO()
-                        c = canvas.Canvas(packet, pagesize=A4)
-
-                        page_width = A4[0]
-                        page_height = A4[1]
-
-                        # 添加页脚作者信息 (左对齐)
-                        c.setFont(self.FONT_NAME, 8)
-                        footer_author_text = f"红点设计奖作品集 tAngo/org.java.tango@gmail.com"
-                        c.drawString(2*cm, 1.5*cm, footer_author_text) # 调整垂直位置
-
-                        # 添加全局页码 (右对齐)
-                        # 注意：这里的页码是针对内容页的，不包括封面。如果总页数包含封面，页码应从1开始计算。
-                        # global_page_count += 1 # 这一行应该在writer.add_page(page) 之后执行，确保页码计算正确
-
-                        # total_count 是作品总数，封面是1页，所以总页数是 total_count + 1
-                        # page_number_text = f"第 {global_page_count} 页 / 共 {total_count + 1} 页" # 页码总数包含封面
-                        # page_number_width = c.stringWidth(page_number_text, self.FONT_NAME, 8)
-                        # c.drawString(page_width - 2*cm - page_number_width, 1.5*cm, page_number_text) # 调整垂直位置
-
-                        c.save()
-                        packet.seek(0)
-                        new_pdf = PdfReader(packet)
-
-                        page.merge_page(new_pdf.pages[0]) # 将页脚合并到当前页
-
-                    else:
-                         # 如果是封面页，只递增全局页码计数，不绘制页脚
-                         global_page_count += 1
-
-
-                    writer.add_page(page)
-
-
-            except Exception as e:
-                logger.error(f"处理文件 {pdf_file_path} 失败: {str(e)}", exc_info=True)
-                continue
-
-        # 保存合并后的文件
-        final_output_path = os.path.join(self.output_dir, output_filename)
         try:
-            with open(final_output_path, 'wb') as f:
-                writer.write(f)
-            logger.info(f"PDF文件合并完成: {final_output_path}")
-        except Exception as e:
-             logger.error(f"保存最终PDF文件失败: {str(e)}")
-             return None
+            # 计算总页数
+            total_pages = 0
+            for temp_pdf_file in temp_pdf_files:
+                if os.path.exists(temp_pdf_file):
+                    with open(temp_pdf_file, 'rb') as f:
+                        reader = PdfReader(f)
+                        total_pages += len(reader.pages)
 
-        # 将临时文件移动到输出目录
-        if os.path.exists(self.temp_dir):
-            for file in os.listdir(self.temp_dir):
-                src_path = os.path.join(self.temp_dir, file)
-                # 移动到上一级目录，也就是分类的输出目录
-                dst_path = os.path.join(self.output_dir, file)
-                if os.path.isfile(src_path):
+            current_page = 0
+            for temp_pdf_file in temp_pdf_files:
+                if not os.path.exists(temp_pdf_file):
+                    logger.warning(f"临时文件不存在，跳过: {temp_pdf_file}")
+                    continue
+
+                # 读取临时PDF文件
+                with open(temp_pdf_file, 'rb') as f:
+                    reader = PdfReader(f)
+                    for page in reader.pages:
+                        current_page += 1
+                        
+                        # 创建一个新的PDF页面用于绘制页码
+                        packet = BytesIO()
+                        can = canvas.Canvas(packet, pagesize=A4)
+                        
+                        # 设置页码文本
+                        page_number = f"第 {current_page} 页 / 共 {total_pages} 页"
+                        
+                        # 计算页码位置（右下角）
+                        width, height = A4
+                        margin = 1.5 * cm
+                        
+                        # 设置字体和颜色
+                        can.setFont(self.FONT_NAME, 9)
+                        can.setFillColor(colors.grey)
+                        
+                        # 计算文本宽度以进行右对齐
+                        text_width = can.stringWidth(page_number, self.FONT_NAME, 9)
+                        
+                        # 绘制页码（距离右边缘 margin，距离底边缘 margin）
+                        can.drawString(width - margin - text_width, margin, page_number)
+                        
+                        # 保存canvas
+                        can.save()
+                        packet.seek(0)
+                        
+                        # 创建包含页码的新页面
+                        page_with_number = PdfReader(packet).pages[0]
+                        
+                        # 将页码页面合并到原始页面
+                        page.merge_page(page_with_number)
+                        
+                        # 将处理后的页面添加到合并器
+                        merger.add_page(page)
+
+            # 写入合并后的PDF文件
+            with open(output_path, 'wb') as f:
+                merger.write(f)
+
+            logger.info(f"PDF 文件合并成功: {output_path}")
+
+            # 移动临时文件到输出目录
+            for temp_pdf_file in temp_pdf_files:
+                if os.path.exists(temp_pdf_file):
+                    target_temp_path = os.path.join(os.path.dirname(output_path), os.path.basename(temp_pdf_file))
                     try:
-                        os.rename(src_path, dst_path)
-                        logger.debug(f"移动临时文件: {src_path} -> {dst_path}")
-                    except OSError as e:
-                        logger.error(f"移动临时文件 {src_path} 到 {dst_path} 失败: {str(e)}")
+                        # 如果目标文件已存在，先删除
+                        if os.path.exists(target_temp_path):
+                            os.remove(target_temp_path)
+                        import shutil
+                        shutil.move(temp_pdf_file, target_temp_path)
+                        logger.debug(f"临时文件移动成功: {temp_pdf_file} -> {target_temp_path}")
+                    except Exception as e:
+                        logger.warning(f"移动临时文件失败 {temp_pdf_file}: {str(e)}")
 
-            # 删除临时目录
-            if not os.listdir(self.temp_dir):
-                try:
-                    os.rmdir(self.temp_dir)
-                    logger.info("临时目录已删除")
-                except OSError as e:
-                     logger.error(f"删除临时目录 {self.temp_dir} 失败: {str(e)}")
-            else:
-                logger.warning("临时目录不为空，跳过删除")
+            return output_path
 
-        return final_output_path
+        except Exception as e:
+            logger.error(f"合并PDF文件时出错: {str(e)}", exc_info=True)
+            return None
+        finally:
+            # 清空临时目录
+            if os.path.exists(self.temp_dir):
+                import shutil
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+                logger.info(f"临时目录已清理: {self.temp_dir}")
 
-    def test_pdf_styles(self, output_filename: str = "test_styles.pdf") -> Optional[str]:
-        """测试 PDF 样式"""
-        # 创建测试数据
-        test_design = {
-            'title': '测试作品标题',
-            'type': '产品设计',
-            'author': '测试作者',
-            'date': '2024',
-            'description': '这是一个测试作品描述，用于验证 PDF 样式。' * 5,
-            'image_path': None  # 测试时不包含图片
-        }
-
-        # 生成测试 PDF
-        return self.generate_full_pdf([test_design], output_filename)
+    def test_pdf_styles(self):
+        """测试PDF样式"""
+        try:
+            # 确保临时目录存在
+            if not os.path.exists(self.temp_dir):
+                os.makedirs(self.temp_dir)
+            
+            # 创建测试数据
+            test_design = {
+                'title': '测试作品标题',
+                'type': '产品设计',
+                'author': '测试作者',
+                'date': '2024',
+                'description': '这是一个测试作品描述。'
+            }
+            
+            # 测试生成PDF
+            output_filename = "test_styles.pdf"
+            result = self.generate_full_pdf([test_design], output_filename)
+            
+            # 验证结果
+            assert result is not None, "PDF生成结果不应为None"
+            assert os.path.exists(result), "生成的PDF文件应该存在"
+            
+            logger.info("PDF样式测试通过")
+            return True
+            
+        except Exception as e:
+            logger.error(f"PDF样式测试失败: {str(e)}", exc_info=True)
+            return False
+        finally:
+            # 清理测试文件
+            if os.path.exists(self.temp_dir):
+                import shutil
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def generate_full_pdf(self, designs: List[Dict], output_filename: str) -> Optional[str]:
         """生成包含所有作品的完整 PDF"""
         if not designs:
             logger.warning("没有作品数据可生成 PDF")
             return None
-
+            
         output_path = os.path.join(self.output_dir, output_filename)
         doc = SimpleDocTemplate(
             output_path,
@@ -559,16 +608,16 @@ class PdfGenerator:
             topMargin=72,
             bottomMargin=72
         )
-
+        
         elements = []
-
+        
         # 添加封面
         elements.extend(self.create_cover_page("红点设计奖作品集", len(designs)))
-
+        
         # 添加内容页
         for i, design in enumerate(designs, 1):
             elements.extend(self.create_content_page(design, i, len(designs)))
-
+        
         try:
             doc.build(elements)
             logger.info(f"PDF 文件生成成功: {output_path}")
@@ -580,11 +629,11 @@ class PdfGenerator:
     def create_cover_page(self, title: str, total_count: int) -> List:
         """创建封面页"""
         elements = []
-
+        
         # 添加标题
         elements.append(Paragraph(title, self.styles['ChineseTitle']))
         elements.append(Spacer(1, 2*cm))
-
+        
         # 添加时间和作者信息
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         elements.append(Paragraph(f"生成时间：{current_time}", self.styles['ChineseSubTitle']))
@@ -592,18 +641,18 @@ class PdfGenerator:
         elements.append(Paragraph(f"生成工具：RedDot Crawler", self.styles['ChineseSubTitle']))
         elements.append(Spacer(1, 0.5*cm))
         elements.append(Paragraph(f"作品总数：{total_count}", self.styles['ChineseSubTitle']))
-
+        
         elements.append(PageBreak())
         return elements
 
     def create_content_page(self, design: Dict, page_number: int, total_pages: int) -> List:
         """创建内容页"""
         elements = []
-
+        
         # 添加标题
         elements.append(Paragraph(design['title'], self.styles['ChineseTitle']))
         elements.append(Spacer(1, 1*cm))
-
+        
         # 添加图片
         if 'image_path' in design and os.path.exists(design['image_path']):
             try:
@@ -615,7 +664,7 @@ class PdfGenerator:
                 elements.append(Spacer(1, 1*cm))
             except Exception as e:
                 logger.error(f"加载图片失败: {str(e)}")
-
+        
         # 添加作品信息
         info_items = [
             ('类型', design.get('type', '')),
@@ -623,16 +672,220 @@ class PdfGenerator:
             ('日期', design.get('date', '')),
             ('描述', design.get('description', ''))
         ]
-
+        
         for label, content in info_items:
             if content:
                 elements.append(Paragraph(f"{label}：{content}", self.styles['ChineseLabel']))
                 elements.append(Spacer(1, 0.3*cm))
-
+        
         # 添加页码
         elements.append(Spacer(1, 1*cm))
-        elements.append(Paragraph(f"第 {page_number} 页 / 共 {total_pages} 页",
+        elements.append(Paragraph(f"第 {page_number} 页 / 共 {total_pages} 页", 
                                 self.styles['ChineseBody']))
-
+        
         elements.append(PageBreak())
         return elements
+
+    def _create_test_pdf(self, filename: str, num_pages: int = 1) -> str:
+        """创建测试用的PDF文件"""
+        # 确保临时目录存在
+        if not os.path.exists(self.temp_dir):
+            os.makedirs(self.temp_dir)
+            
+        output_path = os.path.join(self.temp_dir, filename)
+        packet = BytesIO()
+        can = canvas.Canvas(packet, pagesize=A4)
+        
+        # 只创建一页测试内容
+        can.drawString(100, 750, f"Test Page")
+        can.showPage()
+        
+        can.save()
+        packet.seek(0)
+        
+        with open(output_path, 'wb') as f:
+            f.write(packet.getvalue())
+        
+        logger.info(f"创建测试PDF文件: {output_path}")
+        return output_path  # 返回完整路径
+
+    def test_merge_pdfs(self):
+        """测试PDF合并功能"""
+        try:
+            # 确保临时目录存在
+            if not os.path.exists(self.temp_dir):
+                os.makedirs(self.temp_dir)
+            
+            # 创建测试PDF文件
+            test_files = []
+            for i in range(3):
+                filename = f"test_{i}.pdf"
+                filepath = self._create_test_pdf(filename)
+                test_files.append(filepath)
+                logger.info(f"创建测试文件: {filepath}")
+            
+            # 验证测试文件是否创建成功
+            for filepath in test_files:
+                assert os.path.exists(filepath), f"测试文件不存在: {filepath}"
+            
+            # 测试合并
+            output_filename = "test_merged.pdf"
+            result = self.merge_pdfs(test_files, output_filename, 3)
+            
+            # 验证结果
+            assert result is not None, "合并结果不应为None"
+            assert os.path.exists(result), "合并后的文件应该存在"
+            
+            # 验证页码
+            with open(result, 'rb') as f:
+                reader = PdfReader(f)
+                assert len(reader.pages) == 3, "应该有3页（3个文件，每个1页）"
+            
+            logger.info("PDF合并测试通过")
+            return True
+            
+        except Exception as e:
+            logger.error(f"PDF合并测试失败: {str(e)}", exc_info=True)
+            return False
+        finally:
+            # 清理测试文件
+            if os.path.exists(self.temp_dir):
+                import shutil
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_create_temp_page_pdf(self):
+        """测试临时PDF页面创建功能"""
+        try:
+            # 确保临时目录存在
+            if not os.path.exists(self.temp_dir):
+                os.makedirs(self.temp_dir)
+            
+            # 创建测试数据
+            test_designs = [
+                {
+                    'title': 'Test Design 1',
+                    'designer': 'Test Designer 1',
+                    'description': 'Test Description 1',
+                    'type': 'Test Type 1',
+                    'author': 'Test Author 1',
+                    'date': '2024',
+                    'image_path': 'https://www.red-dot.org/index.php?fr=2137249&token=9b5715d28268e9614b57089d0c54caae80f1d214&eID=tx_solr_image&size=large&usage=overview'
+                }
+            ]
+            
+            # 测试创建临时PDF
+            result = self.create_temp_page_pdf(test_designs, 1)
+            
+            # 验证结果
+            assert result is not None, "临时PDF创建结果不应为None"
+            assert os.path.exists(result), "临时PDF文件应该存在"
+            
+            logger.info("临时PDF创建测试通过")
+            return True
+            
+        except Exception as e:
+            logger.error(f"临时PDF创建测试失败: {str(e)}", exc_info=True)
+            return False
+        finally:
+            # 清理测试文件
+            if os.path.exists(self.temp_dir):
+                import shutil
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def _download_image(self, url: str) -> Optional[str]:
+        """下载图片并返回本地文件路径"""
+        try:
+            import requests
+            from urllib.parse import urlparse
+            from pathlib import Path
+            
+            # 创建临时图片目录
+            temp_img_dir = os.path.join(self.temp_dir, 'images')
+            if not os.path.exists(temp_img_dir):
+                os.makedirs(temp_img_dir)
+            
+            # 从URL中提取文件名
+            parsed_url = urlparse(url)
+            filename = os.path.basename(parsed_url.path)
+            if not filename:
+                filename = f"image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            
+            # 下载图片
+            response = requests.get(url)
+            if response.status_code == 200:
+                temp_img_path = os.path.join(temp_img_dir, filename)
+                with open(temp_img_path, 'wb') as f:
+                    f.write(response.content)
+                logger.info(f"图片下载成功: {temp_img_path}")
+                return temp_img_path
+            else:
+                logger.warning(f"图片下载失败，状态码: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"下载图片时出错: {str(e)}", exc_info=True)
+            return None
+
+    def test_download_image(self):
+        """测试图片下载功能"""
+        try:
+            # 使用一个测试图片URL
+            test_url = "https://www.red-dot.org/index.php?fr=2137260&token=e17ce4894cc13551a7048317f716af823a956088&eID=tx_solr_image&size=large&usage=overview"
+            
+            # 测试下载
+            result = self._download_image(test_url)
+            
+            # 验证结果
+            assert result is not None, "下载结果不应为None"
+            assert os.path.exists(result), "下载的文件应该存在"
+            
+            logger.info("图片下载测试通过")
+            return True
+            
+        except Exception as e:
+            logger.error(f"图片下载测试失败: {str(e)}", exc_info=True)
+            return False
+        finally:
+            # 清理测试文件
+            if os.path.exists(self.temp_dir):
+                import shutil
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def run_all_tests(self):
+        """运行所有测试"""
+        test_results = {
+            'merge_pdfs': self.test_merge_pdfs(),
+            'create_temp_page_pdf': self.test_create_temp_page_pdf(),
+            'pdf_styles': self.test_pdf_styles(),
+            'download_image': self.test_download_image()
+        }
+        
+        # 打印测试结果
+        print("\n" + "="*50)
+        print("测试结果汇总:")
+        print("="*50)
+        
+        all_passed = True
+        for test_name, result in test_results.items():
+            status = "✅ 通过" if result else "❌ 失败"
+            print(f"{test_name:20} : {status}")
+            if not result:
+                all_passed = False
+        
+        print("="*50)
+        print(f"总体结果: {'✅ 全部通过' if all_passed else '❌ 部分失败'}")
+        print("="*50 + "\n")
+        
+        return all_passed
+
+# 如果直接运行此文件，执行测试
+if __name__ == '__main__':
+    # 创建测试实例
+    test_generator = PdfGenerator()
+    
+    # 运行所有测试
+    success = test_generator.run_all_tests()
+    
+    # 设置退出码
+    import sys
+    sys.exit(0 if success else 1) 

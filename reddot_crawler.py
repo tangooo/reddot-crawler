@@ -433,6 +433,111 @@ class RedDotCrawler:
         except Exception as e:
              logger.error(f"生成 PDF 时发生异常: {str(e)}", exc_info=True)
 
+    # 测试相关方法
+    def test_search_designs(self):
+        """测试设计作品搜索功能"""
+        try:
+            # 测试搜索
+            result = self.search_designs("product-design", 1)
+            
+            # 验证结果
+            assert result is not None, "搜索结果不应为None"
+            assert isinstance(result, list), "结果应该是列表"
+            assert len(result) > 0, "应该至少有一个结果"
+            
+            # 验证结果格式
+            design = result[0]
+            assert 'title' in design, "结果应包含标题"
+            assert 'designer' in design, "结果应包含设计师"
+            assert 'description' in design, "结果应包含描述"
+            assert 'image_url' in design, "结果应包含图片URL"
+            assert 'detail_url' in design, "结果应包含详情页URL"
+            
+            logger.info("设计作品搜索测试通过")
+            return True
+            
+        except Exception as e:
+            logger.error(f"设计作品搜索测试失败: {str(e)}", exc_info=True)
+            return False
+
+    def test_process_single_design(self):
+        """测试单个设计作品处理功能"""
+        try:
+            # 创建测试数据
+            test_design = {
+                'title': 'Test Design',
+                'designer': 'Test Designer',
+                'description': 'Test Description',
+                'image_url': 'https://www.red-dot.org/fileadmin/bilder/Kategorien_PD/PD_2023/PD_2023_1.jpg',
+                'detail_url': 'https://www.red-dot.org/project/12345'
+            }
+            
+            # 测试处理
+            result = self._process_single_design(test_design)
+            
+            # 验证结果
+            assert result is not None, "处理结果不应为None"
+            assert isinstance(result, dict), "结果应该是字典"
+            assert 'title' in result, "结果应包含标题"
+            assert 'designer' in result, "结果应包含设计师"
+            assert 'description' in result, "结果应包含描述"
+            assert 'image_url' in result, "结果应包含图片URL"
+            assert 'detail_url' in result, "结果应包含详情页URL"
+            
+            logger.info("单个设计作品处理测试通过")
+            return True
+            
+        except Exception as e:
+            logger.error(f"单个设计作品处理测试失败: {str(e)}", exc_info=True)
+            return False
+
+    def test_parse_design_details(self):
+        """测试设计作品详情解析功能"""
+        try:
+            # 创建测试数据
+            test_design = {
+                'title': 'Test Design',
+                'designer': 'Test Designer',
+                'description': 'Test Description',
+                'image_url': 'https://www.red-dot.org/fileadmin/bilder/Kategorien_PD/PD_2023/PD_2023_1.jpg',
+                'detail_url': 'https://www.red-dot.org/de/project/jiyue-67940'
+            }
+            
+            # 测试解析
+            result = self._parse_design_details(test_design)
+            
+            # 验证结果
+            assert result is not None, "解析结果不应为None"
+            assert isinstance(result, dict), "结果应该是字典"
+            assert 'title' in result, "结果应包含标题"
+            assert 'designer' in result, "结果应包含设计师"
+            assert 'description' in result, "结果应包含描述"
+            assert 'image_url' in result, "结果应包含图片URL"
+            assert 'detail_url' in result, "结果应包含详情页URL"
+            
+            logger.info("设计作品详情解析测试通过")
+            return True
+            
+        except Exception as e:
+            logger.error(f"设计作品详情解析测试失败: {str(e)}", exc_info=True)
+            return False
+
+    def run_all_tests(self):
+        """运行所有测试"""
+        test_results = {
+            'search_designs': self.test_search_designs(),
+            'process_single_design': self.test_process_single_design(),
+            'parse_design_details': self.test_parse_design_details()
+        }
+        
+        # 打印测试结果
+        logger.info("测试结果汇总:")
+        for test_name, result in test_results.items():
+            status = "通过" if result else "失败"
+            logger.info(f"{test_name}: {status}")
+        
+        return all(test_results.values())
+
 def main():
     # 从配置中读取分类
     categories = config.CATEGORIES
@@ -475,5 +580,13 @@ def main():
     logger.info("所有分类采集任务完成")
 
 if __name__ == "__main__":
-    main()
+    # 创建测试实例
+    test_crawler = RedDotCrawler()
+    
+    # 运行所有测试
+    success = test_crawler.run_all_tests()
+    
+    # 设置退出码
+    import sys
+    sys.exit(0 if success else 1)
     
