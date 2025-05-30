@@ -27,7 +27,7 @@
 
 1. 克隆仓库：
 ```bash
-git clone https://github.com/yourusername/reddot-crawler.git
+git clone https://github.com/tangooo/reddot-crawler.git
 cd reddot-crawler
 ```
 
